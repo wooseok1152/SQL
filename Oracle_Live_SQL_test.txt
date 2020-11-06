@@ -1,0 +1,30 @@
+-- 'CREATE TABLE'은 '()'사이에 컬럼을 쓰고, 마지막은 세미콜론으로 끝난다.
+CREATE TABLE EMP 
+( 
+empno number(10) primary key, 
+ename varchar2(20), 
+sal number(6) 
+);
+
+-- 제약조건으로 PRIMARY KEY를 설정(해당 방법이 정석이다.)
+-- "CONSTRAINT '제약조건명' FOREIGN KEY ('외래키 칼럼명') REFERENCES '참조테이블' ('참조테이블_PK')"
+CREATE TABLE EMP
+(
+empno number(10),
+ename varchar2(20),
+sal number(10,2) default 0,
+deptno varchar2(4) not null,
+createdatae date default sysdate,
+constraint emppk primary key(empno)
+);
+
+-- DEPT 테이블 생성
+CREATE TABLE DEPT
+(
+deptno varchar(2) primary key,
+deptname varchar2(20)
+);
+
+-- 'ALTER'로 EMP테이블에 외래키 설정
+ALTER TABLE EMP
+ADD CONSTRAINTS deptfk foreign key (deptno) references DEPT (deptno);
