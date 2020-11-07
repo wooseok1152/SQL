@@ -7,7 +7,7 @@ sal number(6)
 );
 
 -- 제약조건으로 PRIMARY KEY를 설정(해당 방법이 정석이다.)
--- "CONSTRAINT '제약조건명' FOREIGN KEY ('외래키 칼럼명') REFERENCES '참조테이블' ('참조테이블_PK')"
+-- "CONSTRAINTS '제약조건명' PRIMARY KEY('기본키 칼럼명')"
 CREATE TABLE EMP
 (
 empno number(10),
@@ -26,5 +26,6 @@ deptname varchar2(20)
 );
 
 -- 'ALTER'로 EMP테이블에 외래키 설정
+-- "CONSTRAINT '제약조건명' FOREIGN KEY('외래키 칼럼명') REFERENCES '참조테이블'('참조테이블_PK')"
 ALTER TABLE EMP
 ADD CONSTRAINTS deptfk foreign key (deptno) references DEPT (deptno);
