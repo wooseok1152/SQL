@@ -1,5 +1,5 @@
 /* REFERRER의 domian만 가져오기 */
-DROP TABLE IF EXISTS access_log ;
+                drop TABLE if exists access_log;
 CREATE TABLE access_log 
 (
 stamp    varchar2(255),
@@ -169,7 +169,9 @@ COMMIT;
 WITH WINDOW_RANKED_TABLE AS(SELECT CATEGORY, PRODUCT_ID, SCORE, ROW_NUMBER() OVER (PARTITION BY CATEGORY ORDER BY SCORE DESC) AS RANK FROM POPULAR_PRODUCTS) 
 SELECT CATEGORY, PRODUCT_ID FROM WINDOW_RANKED_TABLE WHERE RANK = 1 ORDER BY CATEGORY DESC;
 
-/* 레코드를 열로 변환하기 */
+/* 레코드를 열로 변환하기1 */
+
+-- 첫번째 실습
 DROP TABLE IF EXISTS daily_kpi;
 CREATE TABLE daily_kpi (
     dt        varchar(255)
@@ -186,9 +188,141 @@ INSERT INTO daily_kpi VALUES('2017-01-02', 'users'      ,  250);
 COMMIT;
 
 SELECT * FROM daily_kpi;
-SELECT DT, MAX(CASE WHEN INDICATOR = 'IMPRESSIONS' THEN VAL END) AS IMPRESSIONS, MAX(CASE WHEN INDICATOR = 'SESSIONS' THEN VAL END) AS sessions, MAX(CASE WHEN INDICATOR = 'USERS' THEN VAL END) AS users FROM daily_kpi GROUP BY DT ORDER BY DT;
 
-/* 특정 레코드들을 쉼표로 구분한 문자열로 집약하기(LISTAGG()함수 사용법) */
+WITH dt_indicator_grouping AS (
+    SELECT
+        dt,
+        indicator,
+        CASE
+            WHEN indicator = 'impressions' THEN
+                MAX(val)
+            ELSE
+                0
+        END  AS impressions,
+        CASE
+            WHEN indicator = 'sessions' THEN
+                MAX(val)
+            ELSE
+                0
+        END  AS sessions,
+        CASE
+            WHEN indicator = 'users' THEN
+                MAX(val)
+            ELSE
+                0
+        END  AS users
+    FROM
+        daily_kpi
+    GROUP BY
+        dt,
+        indicator
+)
+SELECT
+    DT, SUM(IMPRESSIONS) AS IMPRESSIONS, SUM(SESSIONS) AS SESSIONS, SUM(USERS) AS USERS
+FROM
+    dt_indicator_grouping
+GROUP BY
+    DT
+ORDER BY
+    DT;
+
+-- 두번째 실습
+WITH tdata AS (
+    SELECT
+        3      AS 판매량,
+        '미국'   국적,
+        '핸드폰'  AS 판매제품
+    FROM
+        dual
+    UNION ALL
+    SELECT
+        15     AS 판매량,
+        '한국'   국적,
+        '냉장고'  AS 판매제품
+    FROM
+        dual
+    UNION ALL
+    SELECT
+        8      AS 판매량,
+        '대만'   국적,
+        '핸드폰'  AS 판매제품
+    FROM
+        dual
+    UNION ALL
+    SELECT
+        5      AS 판매량,
+        '한국'   국적,
+        '자동차'  AS 판매제품
+    FROM
+        dual
+    UNION ALL
+    SELECT
+        42     AS 판매량,
+        '한국'   국적,
+        '핸드폰'  AS 판매제품
+    FROM
+        dual
+    UNION ALL
+    SELECT
+        24     AS 판매량,
+        '미국'   국적,
+        '냉장고'  AS 판매제품
+    FROM
+        dual
+    UNION ALL
+    SELECT
+        24     AS 판매량,
+        '미국'   국적,
+        '카메라'  AS 판매제품
+    FROM
+        dual
+), first_change AS (
+    SELECT
+        국적,
+        CASE
+            WHEN 판매제품 = '핸드폰' THEN
+                SUM(판매량)
+            ELSE
+                0
+        END  핸드폰,
+        CASE
+            WHEN 판매제품 = '냉장고' THEN
+                SUM(판매량)
+            ELSE
+                0
+        END  냉장고,
+        CASE
+            WHEN 판매제품 = '자동차' THEN
+                SUM(판매량)
+            ELSE
+                0
+        END  자동차,
+        CASE
+            WHEN 판매제품 = '카메라' THEN
+                SUM(판매량)
+            ELSE
+                0
+        END  카메라
+    FROM
+        tdata
+    GROUP BY
+        국적,
+        판매제품
+    ORDER BY
+        국적
+)
+SELECT
+    국적,
+    SUM(핸드폰)     AS 핸드폰,
+    SUM(냉장고)     AS 냉장고,
+    SUM(자동차)     AS 자동차,
+    SUM(카메라)     AS 카메라
+FROM
+    first_change
+GROUP BY
+    국적;
+
+/* 레코드를 열로 변환하기2(특정 레코드들을 쉼표로 구분한 문자열로 집약하기[LISTAGG()함수 사용법]) */
 DROP TABLE IF EXISTS purchase_detail_log;
 CREATE TABLE purchase_detail_log 
 (
@@ -204,8 +338,22 @@ INSERT INTO purchase_detail_log VALUES(100002, 'D001', 500);
 INSERT INTO purchase_detail_log VALUES(100002, 'D001', 300);
 INSERT INTO purchase_detail_log VALUES(100003, 'A001', 300);
 
-SELECT * FROM PURCHASE_DETAIL_LOG;
-SELECT PURCHASE_ID, LISTAGG(PRODUCT_ID, ', ') WITHIN GROUP(ORDER BY PRODUCT_ID) FROM PURCHASE_DETAIL_LOG GROUP BY PURCHASE_ID; 
+SELECT
+    *
+FROM
+    purchase_detail_log;
+
+SELECT
+    purchase_id,
+    LISTAGG(product_id, ', ') WITHIN GROUP(
+            ORDER BY
+                product_id
+        ) AS PRODUCT_IDS,
+    SUM(PRICE) AS AMOUNT
+FROM
+    purchase_detail_log
+GROUP BY
+    purchase_id;
 
 /* 열로 표현된 값을 행으로 변환하기 */
 DROP TABLE IF EXISTS quarterly_sales2;
@@ -258,9 +406,72 @@ INSERT INTO product_sale_ranking VALUES(2, 1, 'C001', 30000);
 INSERT INTO product_sale_ranking VALUES(2, 2, 'C002', 20000);
 INSERT INTO product_sale_ranking VALUES(2, 3, 'C003', 10000);
 
-SELECT * FROM MST_CATEGORIES M JOIN CATEGORY_SALES S ON m.category_id = s.category_id JOIN PRODUCT_SALE_RANKING R ON M.CATEGORY_ID = R.CATEGORY_ID;
-SELECT M.CATEGORY_ID, M.NAME, R.PRODUCT_ID, S.SALES FROM (MST_CATEGORIES M LEFT JOIN PRODUCT_SALE_RANKING R ON m.category_id = R.CATEGORY_ID) LEFT JOIN CATEGORY_SALES S ON M.CATEGORY_ID = S.CATEGORY_ID WHERE R.RANK = 1 OR R.RANK IS NULL;
+-- 여러 개의 테이블을 결합해서 가로로 정렬하는 쿼리1
+WITH cat_mst_sales_join AS (
+    SELECT
+        m.category_id    AS cat1,
+        m.name           AS name,
+        s.category_id    AS cat2,
+        s.sales          AS sales
+    FROM
+        mst_categories  m,
+        category_sales  s
+    WHERE
+        m.category_id = s.category_id
+)
+SELECT
+    r.category_id,
+    j.name,
+    j.sales,
+    r.product_id AS sale_product
+FROM
+    cat_mst_sales_join    j,
+    product_sale_ranking  r
+WHERE
+    j.cat1 = r.category_id;
 
+-- 여러 개의 테이블을 결합해서 가로로 정렬하는 쿼리2    
+SELECT
+    m.category_id, m.name, r.product_id, s.sales 
+FROM
+         mst_categories m,
+         category_sales s,
+         product_sale_ranking r
+WHERE
+    m.category_id = s.category_id and s.category_id = r.category_id;
+
+-- 마스터 테이블의 행 수를 변경하지 않고 여러개의 테이블을 가로로 정렬하는 쿼리
+WITH cat_mst_sale_left_join AS (
+    SELECT
+        m.category_id    AS category_id,
+        m.name           AS name,
+        s.sales
+    FROM
+        mst_categories  m
+        LEFT JOIN category_sales  s ON m.category_id = s.category_id
+)
+SELECT
+    j.category_id, J.NAME, J.SALES, R.PRODUCT_ID AS TOP_SALE_PRODUCT
+FROM
+    cat_mst_sale_left_join  j
+    LEFT JOIN product_sale_ranking    r ON j.category_id = r.category_id
+WHERE R.RANK = 1 OR R.RANK IS NULL;
+
+SELECT
+    m.category_id,
+    m.name,
+    r.product_id,
+    s.sales
+FROM
+    (
+        mst_categories        m
+        LEFT JOIN product_sale_ranking  r ON m.category_id = r.category_id
+    )
+    LEFT JOIN category_sales        s ON m.category_id = s.category_id
+WHERE
+    r.rank = 1
+    OR r.rank IS NULL;
+    
 /* 조건 플래그를 0과 1로 표현하기 */
 DROP TABLE IF EXISTS mst_users_with_card_number;
 CREATE TABLE mst_users_with_card_number 
@@ -292,60 +503,154 @@ SELECT * FROM MST_USERS_WITH_CARD_NUMBER M LEFT JOIN PURCHASE_LOG P ON M.USER_ID
 SELECT M.USER_ID, M.CARD_NUMBER, COUNT(P.PURCHASE_ID) AS PURCHASE_COUNT, CASE WHEN COUNT(P.PURCHASE_ID) = 0 THEN 0 ELSE 1 END AS HAS_PURCHASED,  CASE WHEN COUNT(M.CARD_NUMBER) = 0 THEN 0 ELSE 1 END AS HAS_CARD FROM MST_USERS_WITH_CARD_NUMBER M LEFT JOIN PURCHASE_LOG P ON M.USER_ID = P.user_id GROUP BY M.USER_ID, M.CARD_NUMBER;
 
 /* WITH구문 활용하는 법 */
-DROP TABLE IF EXISTS product_sales;
-CREATE TABLE product_sales 
-(
-    category_name varchar(255)
-  , product_id    varchar(255)
-  , sales         integer
+DROP TABLE IF exists
+product_sales;
+
+CREATE TABLE product_sales (
+    category_name  VARCHAR(255),
+    product_id     VARCHAR(255),
+    sales          INTEGER
 );
 
-INSERT INTO product_sales VALUES('dvd' , 'D001', 50000);
-INSERT INTO product_sales VALUES('dvd' , 'D002', 20000);
-INSERT INTO product_sales VALUES('dvd' , 'D003', 10000);
-INSERT INTO product_sales VALUES('cd'  , 'C001', 30000);
-INSERT INTO product_sales VALUES('cd'  , 'C002', 20000);
-INSERT INTO product_sales VALUES('cd'  , 'C003', 10000);
-INSERT INTO product_sales VALUES('book', 'B001', 20000);
-INSERT INTO product_sales VALUES('book', 'B002', 15000);
-INSERT INTO product_sales VALUES('book', 'B003', 10000);
-INSERT INTO product_sales VALUES('book', 'B004',  5000);
-INSERT INTO product_sales VALUES('BOOK', 'B004',  5000);
+INSERT INTO product_sales VALUES (
+    'dvd',
+    'D001',
+    50000
+);
+
+INSERT INTO product_sales VALUES (
+    'dvd',
+    'D002',
+    20000
+);
+
+INSERT INTO product_sales VALUES (
+    'dvd',
+    'D003',
+    10000
+);
+
+INSERT INTO product_sales VALUES (
+    'cd',
+    'C001',
+    30000
+);
+
+INSERT INTO product_sales VALUES (
+    'cd',
+    'C002',
+    20000
+);
+
+INSERT INTO product_sales VALUES (
+    'cd',
+    'C003',
+    10000
+);
+
+INSERT INTO product_sales VALUES (
+    'book',
+    'B001',
+    20000
+);
+
+INSERT INTO product_sales VALUES (
+    'book',
+    'B002',
+    15000
+);
+
+INSERT INTO product_sales VALUES (
+    'book',
+    'B003',
+    10000
+);
+
+INSERT INTO product_sales VALUES (
+    'book',
+    'B004',
+    5000
+);
+
+INSERT INTO product_sales VALUES (
+    'BOOK',
+    'B004',
+    5000
+);
+
 COMMIT;
 
-SELECT * FROM PRODUCT_SALES;
+SELECT
+    *
+FROM
+    product_sales;
 
 -- 카테고리별 순위를 추가한 테이블 조회
-SELECT CATEGORY_NAME, PRODUCT_ID, SALES, ROW_NUMBER() 
-OVER(PARTITION BY CATEGORY_NAME ORDER BY SALES) 
-AS RANK 
-FROM PRODUCT_SALES;
+SELECT
+    category_name,
+    product_id,
+    sales,
+    ROW_NUMBER()
+    OVER(PARTITION BY category_name
+         ORDER BY sales
+    ) AS rank
+FROM
+    product_sales;
 
 -- 카테고리들의 순위에서 유니크한 순위 목록을 조회
-WITH RANKED_PRODUCT_SALES AS
-(
-SELECT CATEGORY_NAME, SALES, ROW_NUMBER() 
-OVER(PARTITION BY CATEGORY_NAME ORDER BY SALES) 
-AS RANK 
-FROM PRODUCT_SALES
-), MST_RANK AS
-(SELECT DISTINCT RANK 
-FROM RANKED_PRODUCT_SALES
-) 
-SELECT * FROM MST_RANK;
+WITH ranked_product_sales AS (
+    SELECT
+        category_name,
+        sales,
+        ROW_NUMBER()
+        OVER(PARTITION BY category_name
+             ORDER BY sales
+        ) AS rank
+    FROM
+        product_sales
+), mst_rank AS (
+    SELECT DISTINCT
+        rank
+    FROM
+        ranked_product_sales
+)
+SELECT
+    *
+FROM
+    mst_rank;
 
 -- 
-WITH RANKED_PRODUCT_SALES AS
-(
-SELECT CATEGORY_NAME, PRODUCT_ID, SALES, ROW_NUMBER() 
-OVER(PARTITION BY CATEGORY_NAME ORDER BY SALES) 
-AS RANK 
-FROM PRODUCT_SALES
-), MST_RANK AS
-(SELECT DISTINCT RANK 
-FROM RANKED_PRODUCT_SALES
-) 
-SELECT * FROM ((MST_RANK M LEFT JOIN RANKED_PRODUCT_SALES R1 ON M.RANK = R1.RANK AND R1.CATEGORY_NAME = 'dvd') LEFT JOIN RANKED_PRODUCT_SALES R2 ON M.RANK = R2.RANK AND R2.CATEGORY_NAME = 'cd') LEFT JOIN RANKED_PRODUCT_SALES R3 ON M.RANK = R3.RANK AND R3.CATEGORY_NAME = 'book';
+WITH ranked_product_sales AS (
+    SELECT
+        category_name,
+        product_id,
+        sales,
+        ROW_NUMBER()
+        OVER(PARTITION BY category_name
+             ORDER BY sales
+        ) AS rank
+    FROM
+        product_sales
+), mst_rank AS (
+    SELECT DISTINCT
+        rank
+    FROM
+        ranked_product_sales
+)
+SELECT
+    *
+FROM
+    (
+        (
+            mst_rank              m
+            LEFT JOIN ranked_product_sales  r1 ON m.rank = r1.rank
+                                                 AND r1.category_name = 'dvd'
+        )
+        LEFT JOIN ranked_product_sales  r2 ON m.rank = r2.rank
+                                             AND r2.category_name = 'cd'
+    )
+    LEFT JOIN ranked_product_sales  r3 ON m.rank = r3.rank
+                                         AND r3.category_name = 'book';
 
 
 
