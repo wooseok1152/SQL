@@ -75,37 +75,42 @@ FROM   (SELECT /*+ NO_MERGE */
 WHERE  FIRST_INLINE_VIEW.CNO = SECOND_INLINE_VIEW.CNO AND
        SECOND_INLINE_VIEW.CNO = SCORE.CNO;      
 
-
-
-      
-WITH A AS(
-SELECT /*+ INLINE */
+/* 
+WITH구문 내에 'INLINE'힌트와 'NO_MERGE'힌트를 사용하여, 해당 WITH구문을 inline view형식으로 사용하고 실제 테이블과 MERGE되지 않게 설정함
+여러개의 WITH구문이 절차지향적으로 사용된 상황에서 각 WITH구문에 'INLINE'힌트와 'NO_MERGE'힌트를 동시에 사용하면, 의도한 절차대로 optimizer가 동작하게 됨
+*/  
+WITH FIRST_WITH AS(
+SELECT /*+ INLINE NO_MERGE */
        CNO,
-       CNAME
+       CNAME,
+       PNO
 FROM COURSE
 WHERE CNO >= '2000'
 ),
 
-B AS (
-SELECT /*+ INLINE LEADING(B A) */
+SECOND_WITH AS (
+SELECT /*+ INLINE NO_MERGE */
        A.CNO,
-       B.PNAME
-FROM  COURSE A, PROFESSOR B
-WHERE A.PNO = B.PNO
-)
-
-SELECT /*+ LEADING(C A B) */
-       C.SNO,
        A.CNAME,
        B.PNAME,
-       C.RESULT
-FROM   A, B, SCORE C
-WHERE  A.CNO = B.CNO AND
-       B.CNO = C.CNO;
+       B.ORDERS
+FROM FIRST_WITH A, PROFESSOR B
+WHERE A.PNO = B.PNO
+),
 
+THIRD_WITH AS (
+SELECT /*+ INLINE NO_MERGE) */
+       B.SNO,
+       A.CNO,
+       CNAME,
+       B.RESULT,
+       PNAME,
+       ORDERS
+FROM SECOND_WITH A, SCORE B
+WHERE A.CNO = B.CNO
+)
 
-
-
+SELECT *
+FROM THIRD_WITH;
 
 SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(NULL, NULL, 'ALLSTATS LAST'));
-
