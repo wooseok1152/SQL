@@ -81,6 +81,8 @@ cno VARCHAR2(8),
 result NUMBER
 ); 
 
+DROP TABLE SCGRADE;
+
 CREATE TABLE scgrade (
 grade VARCHAR2(1),
 hiscore NUMBER(3),

@@ -1,13 +1,43 @@
-SELECT *
-FROM STUDENT;
+/*
+구체적인 실행계획을 반환하는 방법 : 'gather_plan_statistics'힌트를 기입한 쿼리문을 실행시킨 후, 'SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(NULL, NULL, 'ALLSTATS LAST'));'쿼리문 실행
+'ROWNUM'컬럼을 SELECT문에 기입하면, 의도한 절차와 방식대로 쿼리를 실행시킬 수 있음
+'ROWNUM'컬럼를 SELECT문에 기입하면 보통 FULL SCAN이 발생하지만, hint를 사용하여 INDEX SCAN이 발생하도록 만들 수 있음
+*/
+SELECT /*+ gather_plan_statistics INDEX(STUDENT STUDENT_SNO_PK)*/
+       ROWNUM,
+       SNO
+FROM STUDENT
+WHERE SNO <= '910000';
+
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(NULL, NULL, 'ALLSTATS LAST'));
+
+/*
+Trace반환하는 방법
+*/
+-- trace가 어떤 형식으로 나타나는지에 대해 설정(level이 높으면 높을수록, 좀 더 구체적인 Trace를 반환받을 수 있음)
+alter session set events '10046 trace name context forever, level 1';
+
+-- Trace를 확인할 DML 쿼리를 실행하기 전, 현재 세션이 DML쿼리 실행 후 Trace파일을 반환하도록 설정 
+ALTER SESSION SET SQL_TRACE=TRUE;
+
+-- 현재 세션이 DML쿼리 실행 후 Trace파일을 반환하지 않도록 설정
+ALTER SESSION SET SQL_TRACE=FALSE;
+
+-- Trace파일명에 구분자를 추가로 기입하도록 설정
+ALTER SESSION SET TRACEFILE_IDENTIFIER = 'CHOI2';
+
+-- Trace파일 저장 경로 확인
+SELECT VALUE FROM V$DIAG_INFO WHERE NAME = 'Default Trace File';
+
 
 SELECT *
 FROM SCORE;
 
-SELECT *
+SELECT /*+ INDEX_DESC(PROFESSOR PROFESSOR_PNO_PK) */
+       *
 FROM PROFESSOR;
 
-SELECT *
+SELECT * 
 FROM COURSE;
 
 SELECT *
@@ -17,7 +47,8 @@ FROM SCGRADE;
 LEADING힌트를 사용해서, 테이블 접근 순서를 설정할 수 있음
 먼저 접근된 테이블이 Join시 Driving 테이블이 됨
 */
-SELECT /*+ LEADING(B A) */
+SELECT /*+ gather_plan_statistics LEADING(B A) */
+       ROWNUM,
        B.SNO,
        A.CNAME,
        B.RESULT
@@ -25,6 +56,11 @@ FROM COURSE A,
      SCORE B
 WHERE A.CNO = B.CNO AND
       A.CNO >= '2000';
+      
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(NULL, NULL, 'ALLSTATS LAST'));    
+
+SELECT *
+FROM COURSE;
 
 SELECT /*+ LEADING(A B) */
        B.SNO,
@@ -84,6 +120,7 @@ WITH구문 내에 'INLINE'힌트와 'NO_MERGE'힌트를 사용하여, 해당 WITH구문을 inline v
 */  
 WITH FIRST_WITH AS(
 SELECT /*+ INLINE NO_MERGE */
+       ROWNUM,
        CNO,
        CNAME,
        PNO
@@ -93,6 +130,7 @@ WHERE CNO >= '2000'
 
 SECOND_WITH AS (
 SELECT /*+ INLINE NO_MERGE */
+       ROWNUM,
        A.CNO,
        A.CNAME,
        B.PNAME,
@@ -103,6 +141,7 @@ WHERE A.PNO = B.PNO
 
 THIRD_WITH AS (
 SELECT /*+ INLINE NO_MERGE) */
+       ROWNUM,
        B.SNO,
        A.CNO,
        CNAME,
@@ -113,14 +152,17 @@ FROM SECOND_WITH A, SCORE B
 WHERE A.CNO = B.CNO
 )
 
-SELECT *
+SELECT /*+ gather_plan_statistics LEADING(B A) */ *
 FROM THIRD_WITH;
+
+SELECT  * FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(NULL, NULL, 'ALLSTATS LAST'));
 
 /* 
 참조되지 않은 View에 대해선 아무런 Operation이 발생하지 않음
 */  
 WITH FIRST_WITH AS(
 SELECT /*+ INLINE NO_MERGE FULL(COURSE) PARALLEL(COURSE 4)*/
+       ROWNUM,
        CNO,
        CNAME,
        PNO,
@@ -131,6 +173,7 @@ WHERE CNO LIKE '%2%'
 
 SECOND_WITH AS (
 SELECT /*+ INLINE NO_MERGE */
+       ROWNUM,
        SNO,
        CNO,
        RESULT,
@@ -143,7 +186,7 @@ SELECT /*+ INLINE NO_MERGE */
 FROM SCORE A
 )
 
-SELECT *
+SELECT /*+ gather_plan_statistics LEADING(B A) */ *
 FROM SECOND_WITH;
 
 SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(NULL, NULL, 'ALLSTATS LAST'));
@@ -154,6 +197,7 @@ SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(NULL, NULL, 'ALLSTATS LAST'));
 */  
 WITH FIRST_WITH AS(
 SELECT /*+ INLINE NO_MERGE FULL(COURSE) PARALLEL(COURSE 4)*/
+       ROWNUM,
        CNO,
        CNAME,
        PNO,
@@ -163,19 +207,23 @@ FROM COURSE
 
 SECOND_WITH AS (
 SELECT /*+ INLINE NO_MERGE */
-       *
+       ROWNUM,
+       CNO,
+       CNAME,
+       PNO,
+       RNK
 FROM FIRST_WITH
 WHERE TO_CHAR(RNK) LIKE '%1%'
 )
 
-SELECT *
+SELECT /*+ gather_plan_statistics */ *
 FROM SECOND_WITH;
 
 SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(NULL, NULL, 'ALLSTATS LAST'));
 
 /* 
 두 개의 view에 대해 'HASH JOIN'operation이 발생될 수 있음
-Correlated Subquery에 대해선, 특정 join operation이 발생되지 않음
+Correlated Subquery에 대해선, 특정 join operation이 발생되지 않고 'FILTER' operation이 발생함
 */  
 WITH FIRST_WITH AS(
 SELECT /*+ INLINE NO_MERGE FULL(COURSE) PARALLEL(COURSE 4)*/
@@ -257,7 +305,88 @@ FROM SECOND_WITH A, PROFESSOR B
 WHERE A.PNO = B.PNO
 )
 
-SELECT *
+SELECT /*+ gather_plan_statistics */
+       CNO,
+       CNAME,
+       PNAME,
+       ORDERS,
+       RNK
 FROM THIRD_WITH;
 
 SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(NULL, NULL, 'ALLSTATS LAST'));
+
+/*
+WITH구문을 통해 생성된 view가 여러번 참조되면, 참조된 횟수만큼 해당 view에 대한 Table Scan이 발생함
+*/
+WITH FIRST_WITH AS(
+SELECT /*+ INLINE NO_MERGE FULL(COURSE) PARALLEL(COURSE 4)*/
+       CNO,
+       CNAME,
+       PNO,
+       ROW_NUMBER() OVER(ORDER BY CNO DESC) AS RNK
+FROM COURSE
+WHERE CNO LIKE '%2%'
+),
+
+SECOND_WITH AS (
+SELECT /*+ INLINE NO_MERGE */
+      B.PNO,
+      A.PNAME,
+      B.CNO
+FROM PROFESSOR A, FIRST_WITH B
+WHERE A.PNO = B.PNO
+),
+
+THIRD_WITH AS (
+SELECT /*+ INLINE NO_MERGE */
+       B.SNO,
+       B.CNO,
+       B.RESULT
+FROM FIRST_WITH A, SCORE B
+WHERE A.CNO = B.CNO
+)
+
+SELECT /*+ gather_plan_statistics */
+       B.SNO,
+       B.CNO,
+       A.PNO,
+       A.PNAME,
+       B.RESULT
+FROM   SECOND_WITH A, THIRD_WITH B
+WHERE  A.CNO = B.CNO;
+
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(NULL, NULL, 'ALLSTATS LAST'));
+
+/*
+scalar subquery에 대한 실행 계획
+scalar subquery갯수만큼 table scan이 발생함
+*/
+WITH FIRST_WITH AS(
+SELECT /*+ INLINE NO_MERGE */
+       CNO,
+       CNAME,
+       PNO
+FROM COURSE
+WHERE CNO >= '1000'
+),
+
+SECOND_WITH AS (
+SELECT /*+ INLINE NO_MERGE */
+       SNO,
+       SNAME
+FROM STUDENT
+WHERE SNO LIKE '%1%'
+)
+
+SELECT /*+ gather_plan_statistics */
+       (SELECT CNAME FROM FIRST_WITH WHERE CNO = '2358'),
+       (SELECT SNAME FROM SECOND_WITH WHERE SNO = '915301'),
+       (SELECT SNAME FROM SECOND_WITH WHERE SNO = '905301'),
+       (SELECT SNAME FROM SECOND_WITH WHERE SNO = '915304')
+FROM DUAL;
+
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(NULL, NULL, 'ALLSTATS LAST'));
+
+
+SELECT *
+FROM COURSE;
