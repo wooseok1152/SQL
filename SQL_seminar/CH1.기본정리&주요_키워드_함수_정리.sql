@@ -340,12 +340,49 @@ FROM SYSTEM.PROFESSOR;
 
 -- 행 기반의 데이터를 열 기반으로 변경하는 예시
 SELECT A.SNAME,
-       B.CNAME,
-       C.RESULT
-FROM SYSTEM.STUDENT A,
-     SYSTEM.COURSE B,
-     SYSTEM.SCORE C
+       D.GRADE,
+       COUNT(*) AS CNT
+FROM STUDENT A,
+     COURSE B,
+     SCORE C,
+     SCGRADE D
 WHERE A.SNO = C.SNO
       AND B.CNO = C.CNO
-      AND ((A.SNO = '894501' AND C.CNO IN ('1211', '1212', '1213')) OR (A.SNO = '905301' AND C.CNO IN('1211', '1212', '1214')))
-ORDER BY SNAME, CNAME;
+      AND C.RESULT <= D.HISCORE
+      AND C.RESULT >= D.LOSCORE
+      AND A.SNO IN ('944503', '925602')
+GROUP BY A.SNAME, D.GRADE
+ORDER BY A.SNAME, D.GRADE;
+
+SELECT SNAME,
+       SUM(A_CNT) AS A_CNT,
+       SUM(B_CNT) AS B_CNT,
+       SUM(C_CNT) AS C_CNT,
+       SUM(D_CNT) AS D_CNT,
+       SUM(F_CNT) AS F_CNT
+FROM (
+    SELECT SNAME,
+           CASE WHEN GRADE = 'A' THEN CNT ELSE 0 END AS A_CNT,
+           CASE WHEN GRADE = 'B' THEN CNT ELSE 0 END AS B_CNT,
+           CASE WHEN GRADE = 'C' THEN CNT ELSE 0 END AS C_CNT,
+           CASE WHEN GRADE = 'D' THEN CNT ELSE 0 END AS D_CNT,
+           CASE WHEN GRADE = 'F' THEN CNT ELSE 0 END AS F_CNT
+    FROM (
+        SELECT A.SNAME,
+               D.GRADE,
+               COUNT(*) AS CNT
+        FROM STUDENT A,
+             COURSE B,
+             SCORE C,
+             SCGRADE D
+        WHERE A.SNO = C.SNO
+              AND B.CNO = C.CNO
+              AND C.RESULT <= D.HISCORE
+              AND C.RESULT >= D.LOSCORE
+              AND A.SNO IN ('944503', '925602')
+        GROUP BY A.SNAME, D.GRADE
+        ORDER BY A.SNAME, D.GRADE
+    )
+)
+GROUP BY SNAME;
+
