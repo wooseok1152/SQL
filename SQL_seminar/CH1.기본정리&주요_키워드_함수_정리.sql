@@ -35,13 +35,13 @@ SYSTEM.DEPT B
 ON (A.DNO = B.DNO);
 
 -- DEPT테이블 GROUP BY 실시
-SELECT B.DNO,
+SELECT A.DNO,
        B.DNAME,
        SUM(A.SAL) AS SAL_SUM
 FROM SYSTEM.EMP A,
      SYSTEM.DEPT B
 WHERE A.DNO = B.DNO
-GROUP BY B.DNO, B.DNAME;
+GROUP BY A.DNO, B.DNAME;
 
 -- ORDER BY 오름차순
 SELECT B.DNO,
@@ -338,22 +338,7 @@ SELECT TO_CHAR(HIREDATE, 'YYYY/MM/DD') AS STD_DT,
        TO_CHAR(TO_DATE(SUBSTR(TO_CHAR(HIREDATE, 'YYYYMMDD'), 1, 6) || '01') - 1, 'YYYY/MM/DD') AS BFR_MONTH_LAST_DT
 FROM SYSTEM.PROFESSOR;
 
--- 행 기반의 데이터를 열 기반으로 변경하는 예시
-SELECT A.SNAME,
-       D.GRADE,
-       COUNT(*) AS CNT
-FROM STUDENT A,
-     COURSE B,
-     SCORE C,
-     SCGRADE D
-WHERE A.SNO = C.SNO
-      AND B.CNO = C.CNO
-      AND C.RESULT <= D.HISCORE
-      AND C.RESULT >= D.LOSCORE
-      AND A.SNO IN ('944503', '925602')
-GROUP BY A.SNAME, D.GRADE
-ORDER BY A.SNAME, D.GRADE;
-
+-- 행 기반의 테이블을 열 기반의 테이블로 변경하는 예시
 SELECT SNAME,
        SUM(A_CNT) AS A_CNT,
        SUM(B_CNT) AS B_CNT,
@@ -371,10 +356,10 @@ FROM (
         SELECT A.SNAME,
                D.GRADE,
                COUNT(*) AS CNT
-        FROM STUDENT A,
-             COURSE B,
-             SCORE C,
-             SCGRADE D
+        FROM SYSTEM.STUDENT A,
+             SYSTEM.COURSE B,
+             SYSTEM.SCORE C,
+             SYSTEM.SCGRADE D
         WHERE A.SNO = C.SNO
               AND B.CNO = C.CNO
               AND C.RESULT <= D.HISCORE
@@ -385,4 +370,6 @@ FROM (
     )
 )
 GROUP BY SNAME;
+
+
 
