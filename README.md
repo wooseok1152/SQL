@@ -1,2 +1,2 @@
 # SQL
- SQLD Practice
+ SQL practice
